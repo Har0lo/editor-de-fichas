@@ -1,0 +1,345 @@
+:root {
+  --bg: #14141f;
+  --bg-soft: #1d1d2b;
+  --surface: #252535;
+  --border: #34344a;
+  --text: #f1f1f4;
+  --text-dim: #9d9db2;
+  --amarillo: #ffd400;
+  --azul: #2d9cdb;
+  --danger: #e25563;
+  --radius: 10px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Poppins', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* ---------- botones ---------- */
+
+.btn {
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  white-space: nowrap;
+}
+.btn:hover {
+  background: #303045;
+}
+.btn:active {
+  transform: scale(0.97);
+}
+.btn-primary {
+  background: var(--amarillo);
+  border-color: var(--amarillo);
+  color: #111;
+  font-weight: 600;
+}
+.btn-primary:hover {
+  background: #ffdf40;
+}
+.btn-danger {
+  color: var(--danger);
+}
+.btn-danger:hover {
+  background: rgba(226, 85, 99, 0.15);
+}
+.btn-small {
+  padding: 5px 10px;
+  font-size: 0.78rem;
+}
+.btn-add {
+  border-color: #45455e;
+}
+.btn-pdf {
+  background: var(--amarillo);
+  border-color: var(--amarillo);
+  color: #111;
+  font-weight: 700;
+  font-size: 1rem;
+  padding: 8px 26px;
+}
+.btn-pdf:hover {
+  background: #ffdf40;
+}
+
+/* ---------- dashboard ---------- */
+
+.dashboard {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 40px 24px;
+}
+.dash-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.dash-header h1 {
+  margin: 0;
+  font-size: 1.7rem;
+}
+.subtitle {
+  margin: 4px 0 0;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+.search {
+  width: 100%;
+  font: inherit;
+  color: var(--text);
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 16px;
+  margin-bottom: 28px;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 20px;
+}
+.card {
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: border-color 0.15s, transform 0.15s;
+  cursor: pointer;
+}
+.card:hover {
+  border-color: var(--amarillo);
+  transform: translateY(-2px);
+}
+.card-thumb {
+  aspect-ratio: 4 / 3;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.card-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.thumb-placeholder {
+  color: #999;
+  font-size: 0.8rem;
+}
+.card-body {
+  padding: 12px 14px 6px;
+}
+.card-body h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.card-body p {
+  margin: 4px 0 0;
+  color: var(--text-dim);
+  font-size: 0.75rem;
+}
+.card-actions {
+  display: flex;
+  gap: 8px;
+  padding: 10px 14px 14px;
+}
+.empty {
+  text-align: center;
+  color: var(--text-dim);
+  margin-top: 60px;
+}
+
+/* ---------- modal ---------- */
+
+.modal {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-soft);
+  color: var(--text);
+  padding: 28px;
+  width: min(420px, 90vw);
+}
+.modal::backdrop {
+  background: rgba(0, 0, 0, 0.6);
+}
+.modal h2 {
+  margin: 0 0 18px;
+  font-size: 1.2rem;
+}
+.modal label {
+  display: block;
+  margin-bottom: 16px;
+  font-size: 0.85rem;
+}
+.modal input {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 12px;
+}
+.modal small {
+  color: var(--text-dim);
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+/* ---------- editor ---------- */
+
+.editor {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--bg-soft);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.ficha-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.divider {
+  width: 1px;
+  height: 24px;
+  background: var(--border);
+}
+.spacer {
+  flex: 1;
+}
+.save-status {
+  color: var(--text-dim);
+  font-size: 0.78rem;
+}
+.canvas-area {
+  flex: 1;
+  overflow: auto;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: radial-gradient(circle at 50% 30%, #1b1b29, var(--bg));
+}
+.canvas-holder {
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  line-height: 0;
+}
+
+/* ---------- panel de propiedades flotante ---------- */
+
+.props {
+  position: fixed;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 10px 16px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+}
+.props-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+.props-item input {
+  width: 64px;
+  font: inherit;
+  color: var(--text);
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 5px 8px;
+}
+.swatches {
+  display: flex;
+  gap: 6px;
+}
+.swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  cursor: pointer;
+  padding: 0;
+}
+.swatch:hover {
+  border-color: var(--text);
+}
+
+/* ---------- editor de celda de tabla ---------- */
+
+.cell-editor {
+  position: fixed;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 240px;
+  background: var(--surface);
+  border: 1px solid var(--amarillo);
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.5);
+}
+.cell-editor input,
+.cell-editor textarea {
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--text);
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 10px;
+  resize: vertical;
+}
+.cell-editor .ce-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
