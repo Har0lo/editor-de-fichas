@@ -35,7 +35,9 @@ cosas por él (no pedirle que "revise el código"). Idioma: español.
 pierden si se limpia el caché. Es solo para probar.
 
 **Desplegado en:** Netlify → https://creative-daifuku-97125c.netlify.app/
-(deploy manual arrastrando la carpeta `dist`; ver `DEPLOY.md`).
+**Deploy automático:** repo en GitHub (https://github.com/Har0lo/editor-de-fichas)
+enlazado a Netlify. Cada `git push` a `main` republica solo. Flujo de trabajo:
+`git add -A && git commit -m "..." && git push`.
 
 ## Cómo correrlo en local
 
