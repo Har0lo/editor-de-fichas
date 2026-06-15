@@ -14,8 +14,8 @@ export async function renderLogin(app) {
             : '<p class="login-error">⚠️ La app aún no está conectada a la nube. Avisa al administrador.</p>'
         }
         <label>
-          Correo
-          <input type="email" id="login-email" autocomplete="username" required />
+          Usuario
+          <input type="text" id="login-email" autocomplete="username" placeholder="ej: gio" required />
         </label>
         <label>
           Contraseña
@@ -40,15 +40,14 @@ export async function renderLogin(app) {
     btn.disabled = true;
     btn.textContent = 'Entrando…';
     try {
-      await signIn(
-        app.querySelector('#login-email').value.trim(),
-        app.querySelector('#login-password').value
-      );
+      const raw = app.querySelector('#login-email').value.trim();
+      const email = raw.includes('@') ? raw : `${raw}@fichas.app`;
+      await signIn(email, app.querySelector('#login-password').value);
       navigate('/');
     } catch (err) {
       msg.textContent =
         err?.message === 'Invalid login credentials'
-          ? 'Correo o contraseña incorrectos.'
+          ? 'Usuario o contraseña incorrectos.'
           : `No se pudo iniciar sesión: ${err?.message || err}`;
       msg.classList.remove('hidden');
       btn.disabled = false;

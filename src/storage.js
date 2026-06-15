@@ -97,6 +97,37 @@ export async function duplicateFicha(id) {
   return fromRow(data);
 }
 
+/* ---------- compartir fichas (admin) ---------- */
+
+export async function listVendors() {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, email')
+    .eq('role', 'sales')
+    .order('email');
+  if (error) throw error;
+  return data.map((p) => ({ id: p.id, email: p.email, label: (p.email || '').split('@')[0] }));
+}
+
+export async function getShares(fichaId) {
+  const { data, error } = await supabase
+    .from('ficha_shares')
+    .select('user_id')
+    .eq('ficha_id', fichaId);
+  if (error) throw error;
+  return data.map((r) => r.user_id);
+}
+
+export async function setShares(fichaId, userIds) {
+  const { error: delErr } = await supabase.from('ficha_shares').delete().eq('ficha_id', fichaId);
+  if (delErr) throw delErr;
+  if (userIds.length) {
+    const rows = userIds.map((uid) => ({ ficha_id: fichaId, user_id: uid }));
+    const { error } = await supabase.from('ficha_shares').insert(rows);
+    if (error) throw error;
+  }
+}
+
 /* ---------- banco de bases gráficas ---------- */
 
 export function baseUrl(path) {

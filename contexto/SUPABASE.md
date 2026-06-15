@@ -113,3 +113,39 @@ update public.profiles set role = 'admin' where email = 'TU-CORREO-AQUI';
 > se comparte es la "service_role" key (esa NO me la pases).
 
 Con esos 2 datos conecto la app y probamos juntos.
+
+---
+
+## 5. (Después) Compartir fichas — SQL adicional
+
+Para que el admin pueda compartir fichas con vendedores. Pega en **SQL Editor** y **Run**
+(es aditivo, no afecta lo ya creado):
+
+```sql
+-- el admin puede ver todos los perfiles (para listar a los vendedores)
+create policy "perfiles: admin lee todos" on public.profiles
+  for select using (public.is_admin());
+
+-- qué ficha está compartida con qué usuario
+create table public.ficha_shares (
+  ficha_id uuid references public.fichas on delete cascade,
+  user_id uuid references auth.users on delete cascade,
+  primary key (ficha_id, user_id)
+);
+alter table public.ficha_shares enable row level security;
+
+create policy "shares: ver propias o admin" on public.ficha_shares
+  for select using (user_id = auth.uid() or public.is_admin());
+create policy "shares: admin gestiona" on public.ficha_shares
+  for all using (public.is_admin()) with check (public.is_admin());
+
+-- los vendedores pueden ver y editar las fichas que les compartieron
+create policy "fichas: leer compartidas" on public.fichas
+  for select using (exists(
+    select 1 from public.ficha_shares s where s.ficha_id = id and s.user_id = auth.uid()
+  ));
+create policy "fichas: editar compartidas" on public.fichas
+  for update using (exists(
+    select 1 from public.ficha_shares s where s.ficha_id = id and s.user_id = auth.uid()
+  ));
+```

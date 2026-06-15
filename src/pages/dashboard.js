@@ -1,9 +1,10 @@
 import {
   listFichas, createFicha, deleteFicha, duplicateFicha,
   listBases, uploadBase, baseUrl,
+  listVendors, getShares, setShares,
 } from '../storage.js';
 import { navigate } from '../router.js';
-import { signOut, getEmail, isAdmin, changePassword } from '../auth.js';
+import { signOut, getEmail, getUserId, isAdmin, changePassword } from '../auth.js';
 
 // usuario "disfrazado" de correo -> mostrar solo la parte antes de @
 const userLabel = (email) => (email || '').split('@')[0];
@@ -45,6 +46,19 @@ export async function renderDashboard(app) {
       <div class="grid" id="grid"></div>
       <p class="empty hidden" id="empty">Aún no hay fichas. Crea la primera con “+ Nueva ficha”.</p>
     </div>
+
+    <dialog id="modal-share" class="modal">
+      <form method="dialog" id="form-share">
+        <h2 id="share-title">Compartir ficha</h2>
+        <p class="field-label">Selecciona con quién compartirla:</p>
+        <div class="share-list" id="share-list"></div>
+        <p class="login-error hidden" id="share-msg"></p>
+        <div class="modal-actions">
+          <button type="button" class="btn" id="share-cancelar">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="share-guardar">Guardar</button>
+        </div>
+      </form>
+    </dialog>
 
     <dialog id="modal-password" class="modal">
       <form method="dialog" id="form-password">
@@ -95,8 +109,10 @@ export async function renderDashboard(app) {
   const msg = app.querySelector('#nueva-msg');
   const btnCrear = app.querySelector('#btn-crear');
 
+  const myId = getUserId();
   let fichas = [];
   let selectedBase = null; // { path, url }
+  let vendors = null; // cache de vendedores para el diálogo de compartir
 
   try {
     fichas = await listFichas();
@@ -118,11 +134,12 @@ export async function renderDashboard(app) {
           </div>
           <div class="card-body">
             <h3>${f.name}</h3>
-            <p>Editado: ${fechaCorta(f.updatedAt)}</p>
+            <p>Editado: ${fechaCorta(f.updatedAt)}${!admin && f.userId !== myId ? ' · <span class="tag-shared">Compartida</span>' : ''}</p>
           </div>
           <div class="card-actions">
             <button class="btn btn-small" data-action="abrir">Abrir</button>
             <button class="btn btn-small" data-action="duplicar">Duplicar</button>
+            ${admin ? '<button class="btn btn-small" data-action="compartir">Compartir</button>' : ''}
             <button class="btn btn-small btn-danger" data-action="eliminar">Eliminar</button>
           </div>
         </article>`
@@ -148,6 +165,8 @@ export async function renderDashboard(app) {
       await duplicateFicha(id);
       fichas = await listFichas();
       pintar();
+    } else if (action === 'compartir') {
+      openShare(fichas.find((f) => f.id === id));
     } else {
       navigate(`/editor/${id}`);
     }
@@ -158,6 +177,56 @@ export async function renderDashboard(app) {
   app.querySelector('#btn-logout').addEventListener('click', async () => {
     await signOut();
     navigate('/login');
+  });
+
+  /* ---------- compartir ficha (solo admin) ---------- */
+  const modalShare = app.querySelector('#modal-share');
+  const shareList = app.querySelector('#share-list');
+  const shareMsg = app.querySelector('#share-msg');
+  let shareFichaId = null;
+
+  async function openShare(ficha) {
+    shareFichaId = ficha.id;
+    app.querySelector('#share-title').textContent = `Compartir "${ficha.name}" con`;
+    shareMsg.classList.add('hidden');
+    shareList.innerHTML = 'Cargando…';
+    modalShare.showModal();
+    try {
+      if (!vendors) vendors = await listVendors();
+      const yaCompartida = new Set(await getShares(ficha.id));
+      shareList.innerHTML = vendors.length
+        ? vendors
+            .map(
+              (v) => `<label class="share-item">
+                <input type="checkbox" value="${v.id}" ${yaCompartida.has(v.id) ? 'checked' : ''} />
+                ${v.label}
+              </label>`
+            )
+            .join('')
+        : '<p class="bases-empty">No hay vendedores creados todavía.</p>';
+    } catch (err) {
+      shareList.innerHTML = `<p class="bases-empty">Error: ${err.message}</p>`;
+    }
+  }
+
+  app.querySelector('#share-cancelar').addEventListener('click', () => modalShare.close());
+  app.querySelector('#form-share').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const ids = [...shareList.querySelectorAll('input:checked')].map((c) => c.value);
+    const btn = app.querySelector('#share-guardar');
+    btn.disabled = true;
+    btn.textContent = 'Guardando…';
+    shareMsg.classList.add('hidden');
+    try {
+      await setShares(shareFichaId, ids);
+      modalShare.close();
+    } catch (err) {
+      shareMsg.textContent = `No se pudo guardar: ${err.message}`;
+      shareMsg.classList.remove('hidden');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Guardar';
+    }
   });
 
   /* ---------- cambiar contraseña ---------- */

@@ -371,6 +371,42 @@ body {
   border-color: var(--text);
 }
 
+/* ---------- compartir ---------- */
+
+.share-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+.share-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  text-transform: capitalize;
+}
+.share-item:hover {
+  background: var(--surface);
+}
+.share-item input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--amarillo);
+}
+.tag-shared {
+  color: #111;
+  background: var(--amarillo);
+  border-radius: 5px;
+  padding: 1px 6px;
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
 /* ---------- login ---------- */
 
 .login-wrap {
