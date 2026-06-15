@@ -36,6 +36,11 @@ export async function signIn(email, password) {
   return session;
 }
 
+export async function changePassword(newPassword) {
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) throw error;
+}
+
 export async function signOut() {
   await supabase.auth.signOut();
   session = null;

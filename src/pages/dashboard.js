@@ -3,7 +3,7 @@ import {
   listBases, uploadBase, baseUrl,
 } from '../storage.js';
 import { navigate } from '../router.js';
-import { signOut, getEmail, isAdmin } from '../auth.js';
+import { signOut, getEmail, isAdmin, changePassword } from '../auth.js';
 
 // usuario "disfrazado" de correo -> mostrar solo la parte antes de @
 const userLabel = (email) => (email || '').split('@')[0];
@@ -37,6 +37,7 @@ export async function renderDashboard(app) {
         </div>
         <div class="dash-actions">
           <button class="btn btn-primary" id="btn-nueva">+ Nueva ficha</button>
+          <button class="btn" id="btn-password">Cambiar contraseña</button>
           <button class="btn" id="btn-logout">Salir</button>
         </div>
       </header>
@@ -44,6 +45,25 @@ export async function renderDashboard(app) {
       <div class="grid" id="grid"></div>
       <p class="empty hidden" id="empty">Aún no hay fichas. Crea la primera con “+ Nueva ficha”.</p>
     </div>
+
+    <dialog id="modal-password" class="modal">
+      <form method="dialog" id="form-password">
+        <h2>Cambiar contraseña</h2>
+        <label>
+          Nueva contraseña
+          <input type="password" id="pwd-nueva" minlength="6" autocomplete="new-password" required />
+        </label>
+        <label>
+          Repite la contraseña
+          <input type="password" id="pwd-repite" minlength="6" autocomplete="new-password" required />
+        </label>
+        <p class="login-error hidden" id="pwd-msg"></p>
+        <div class="modal-actions">
+          <button type="button" class="btn" id="pwd-cancelar">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="pwd-guardar">Guardar</button>
+        </div>
+      </form>
+    </dialog>
 
     <dialog id="modal-nueva" class="modal modal-wide">
       <form method="dialog" id="form-nueva">
@@ -138,6 +158,45 @@ export async function renderDashboard(app) {
   app.querySelector('#btn-logout').addEventListener('click', async () => {
     await signOut();
     navigate('/login');
+  });
+
+  /* ---------- cambiar contraseña ---------- */
+  const modalPwd = app.querySelector('#modal-password');
+  const pwdMsg = app.querySelector('#pwd-msg');
+  app.querySelector('#btn-password').addEventListener('click', () => {
+    app.querySelector('#form-password').reset();
+    pwdMsg.classList.add('hidden');
+    modalPwd.showModal();
+  });
+  app.querySelector('#pwd-cancelar').addEventListener('click', () => modalPwd.close());
+  app.querySelector('#form-password').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const nueva = app.querySelector('#pwd-nueva').value;
+    const repite = app.querySelector('#pwd-repite').value;
+    pwdMsg.classList.add('hidden');
+    if (nueva !== repite) {
+      pwdMsg.textContent = 'Las contraseñas no coinciden.';
+      pwdMsg.classList.remove('hidden', 'login-ok');
+      pwdMsg.classList.add('login-error');
+      return;
+    }
+    const btn = app.querySelector('#pwd-guardar');
+    btn.disabled = true;
+    btn.textContent = 'Guardando…';
+    try {
+      await changePassword(nueva);
+      pwdMsg.textContent = '✅ ¡Contraseña actualizada!';
+      pwdMsg.classList.remove('hidden', 'login-error');
+      pwdMsg.classList.add('login-ok');
+      setTimeout(() => modalPwd.close(), 1400);
+    } catch (err) {
+      pwdMsg.textContent = `No se pudo cambiar: ${err.message}`;
+      pwdMsg.classList.remove('hidden', 'login-ok');
+      pwdMsg.classList.add('login-error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Guardar';
+    }
   });
 
   /* ---------- modal nueva ficha + banco de bases ---------- */
