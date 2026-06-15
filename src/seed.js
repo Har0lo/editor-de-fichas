@@ -3,9 +3,10 @@
 // para que aparezca en el dashboard la primera vez que se abre la app.
 import { StaticCanvas, Textbox } from 'fabric';
 import { Bubble, Arrow, FichaTable } from './elements.js';
-import { getFicha, saveFicha } from './storage.js';
+import { getFicha, saveFicha, deleteFicha } from './storage.js';
 
-const DEMO_ID = 'force-hidrofugado-demo';
+const DEMO_ID = 'force-hidrofugado-demo-v2';
+const OLD_DEMO_IDS = ['force-hidrofugado-demo', 'force-demo'];
 const W = 3300;
 const H = 2550;
 
@@ -60,7 +61,13 @@ function buildCanvasState() {
     const cx = b.left + b.width / 2;
     const sx = tx >= cx ? b.left + b.width + 20 : b.left - 20;
     const sy = b.top + b.height / 2;
-    canvas.add(new Arrow([sx, sy, tx, ty], { strokeWidth: 11, dotRadius: 16, strokeDashArray: [22, 16] }));
+    const dir = tx >= sx ? 1 : -1;
+    const bendX = sx + dir * 150; // tramo horizontal antes de la diagonal
+    canvas.add(new Arrow([
+      { x: sx, y: sy },
+      { x: bendX, y: sy },
+      { x: tx, y: ty },
+    ]));
   }
 
   const state = canvas.toObject();
@@ -71,6 +78,10 @@ function buildCanvasState() {
 export async function seedDemoFicha() {
   try {
     if (await getFicha(DEMO_ID)) return; // ya existe
+    // limpiar versiones viejas de la demo (estilo anterior de flechas/tabla)
+    for (const oldId of OLD_DEMO_IDS) {
+      if (await getFicha(oldId)) await deleteFicha(oldId);
+    }
     const blob = await (await fetch('./force-base.jpg')).blob();
     const now = Date.now();
     await saveFicha({

@@ -1,5 +1,5 @@
 // Elementos de ficha: burbujas, flechas, textos y tablas predefinidos.
-import { Textbox, Line, Control, FabricObject, util, classRegistry } from 'fabric';
+import { Textbox, Polyline, Point, Control, FabricObject, util, classRegistry } from 'fabric';
 
 export const COLORS = {
   amarillo: '#FFD400',
@@ -43,86 +43,138 @@ export class Bubble extends Textbox {
 }
 classRegistry.setClass(Bubble);
 
-/* ---------- Flecha punteada con extremos arrastrables ---------- */
+/* ---------- Flecha guía: tramo horizontal + diagonal (estilo ficha) ---------- */
 
-// Reescribe x1..y2 como coordenadas absolutas actuales (tras mover la línea,
-// left/top cambian pero x1..y2 quedan viejos).
-export function syncArrowCoords(line) {
-  const p = line.calcLinePoints();
-  const m = line.calcTransformMatrix();
-  const p1 = util.transformPoint({ x: p.x1, y: p.y1 }, m);
-  const p2 = util.transformPoint({ x: p.x2, y: p.y2 }, m);
-  line.set({ x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y });
-  line.setCoords();
+// 3 puntos: inicio → codo → fin. El tramo inicio→codo es siempre horizontal;
+// codo→fin es la diagonal que apunta al detalle. Los 3 son arrastrables.
+// Edición de puntos según la receta estándar de Fabric para polígonos.
+
+function handleRender(ctx, left, top) {
+  ctx.save();
+  ctx.fillStyle = '#ffffff';
+  ctx.strokeStyle = '#222222';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(left, top, 8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
 }
 
-function endpointControl(end) {
+function pointPositionHandler(dim, finalMatrix, obj) {
+  const p = obj.points[this.pointIndex];
+  const pt = new Point(p.x - obj.pathOffset.x, p.y - obj.pathOffset.y);
+  return pt.transform(
+    util.multiplyTransformMatrices(obj.canvas.viewportTransform, obj.calcTransformMatrix())
+  );
+}
+
+function pointActionHandler(eventData, transform, x, y) {
+  const obj = transform.target;
+  const control = obj.controls[obj.__corner];
+  const i = control.pointIndex;
+  // punto del cursor relativo al centro del objeto (rotación y escala bloqueadas)
+  const center = obj.getCenterPoint();
+  const localX = x - center.x;
+  const localY = y - center.y;
+  const base = obj._getNonTransformedDimensions();
+  const size = obj._getTransformedDimensions();
+  const np = new Point(
+    (size.x ? (localX * base.x) / size.x : 0) + obj.pathOffset.x,
+    (size.y ? (localY * base.y) / size.y : 0) + obj.pathOffset.y
+  );
+  const pts = obj.points;
+  if (i === 0) {
+    pts[0] = np;
+    pts[1] = new Point(pts[1].x, np.y); // el codo sigue a la altura del inicio (tramo horizontal)
+  } else if (i === 1) {
+    pts[1] = new Point(np.x, pts[0].y); // el codo solo se mueve en horizontal
+  } else {
+    pts[i] = np;
+  }
+  return true;
+}
+
+// Recoloca el objeto para que el punto ancla no "salte" al cambiar el bounding box.
+function anchorWrapper(anchorIndex, fn) {
+  return function (eventData, transform, x, y) {
+    const obj = transform.target;
+    const anchorAbs = new Point(
+      obj.points[anchorIndex].x - obj.pathOffset.x,
+      obj.points[anchorIndex].y - obj.pathOffset.y
+    ).transform(obj.calcTransformMatrix());
+    const performed = fn(eventData, transform, x, y);
+    obj.setDimensions();
+    const base = obj._getNonTransformedDimensions();
+    const newX = base.x ? (obj.points[anchorIndex].x - obj.pathOffset.x) / base.x : 0;
+    const newY = base.y ? (obj.points[anchorIndex].y - obj.pathOffset.y) / base.y : 0;
+    obj.setPositionByOrigin(anchorAbs, newX + 0.5, newY + 0.5);
+    return performed;
+  };
+}
+
+function makeArrowControl(pointIndex, anchorIndex) {
   return new Control({
+    pointIndex,
+    actionName: 'modifyArrow',
     cursorStyle: 'crosshair',
-    actionName: 'moveEndpoint',
-    positionHandler(dim, finalMatrix, line) {
-      const p = line.calcLinePoints();
-      const pt = end === 1 ? { x: p.x1, y: p.y1 } : { x: p.x2, y: p.y2 };
-      return util.transformPoint(
-        pt,
-        util.multiplyTransformMatrices(line.canvas.viewportTransform, line.calcTransformMatrix())
-      );
-    },
-    actionHandler(eventData, transform, x, y) {
-      const line = transform.target;
-      syncArrowCoords(line);
-      line.set(end === 1 ? { x1: x, y1: y } : { x2: x, y2: y });
-      line.setCoords();
-      return true;
-    },
-    render(ctx, left, top) {
-      ctx.save();
-      ctx.fillStyle = '#ffffff';
-      ctx.strokeStyle = '#333333';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(left, top, 7, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-      ctx.restore();
-    },
+    positionHandler: pointPositionHandler,
+    actionHandler: anchorWrapper(anchorIndex, pointActionHandler),
+    render: handleRender,
   });
 }
 
-export class Arrow extends Line {
+export class Arrow extends Polyline {
   static type = 'arrow';
 
   constructor(points, options = {}) {
+    const { type, ...rest } = options;
     super(points, {
       stroke: COLORS.amarillo,
       strokeWidth: 11,
       strokeDashArray: [22, 16],
       strokeLineCap: 'round',
+      strokeLineJoin: 'round',
+      fill: '',
       dotRadius: 16,
+      objectCaching: false,
       hasBorders: false,
-      lockRotation: true,
       lockScalingX: true,
       lockScalingY: true,
-      ...options,
+      lockRotation: true,
+      perPixelTargetFind: true,
+      ...rest,
     });
-    this.controls = { p1: endpointControl(1), p2: endpointControl(2) };
+    // anclas: al mover inicio (0) anclar al fin (2); el codo (1) y fin (2) anclan al inicio (0)
+    this.controls = {
+      pStart: makeArrowControl(0, 2),
+      pBend: makeArrowControl(1, 0),
+      pEnd: makeArrowControl(2, 0),
+    };
   }
 
   _render(ctx) {
-    super._render(ctx);
-    // punto sólido en el extremo que apunta al detalle
-    const p = this.calcLinePoints();
+    super._render(ctx); // dibuja la polilínea punteada
+    const end = this.points[this.points.length - 1];
     ctx.save();
     ctx.setLineDash([]);
     ctx.fillStyle = this.stroke;
     ctx.beginPath();
-    ctx.arc(p.x2, p.y2, this.dotRadius, 0, Math.PI * 2);
+    ctx.arc(end.x - this.pathOffset.x, end.y - this.pathOffset.y, this.dotRadius, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
   }
 
   toObject(props = []) {
     return super.toObject(['dotRadius', ...props]);
+  }
+
+  static fromObject(object) {
+    const points =
+      object.points && object.points.length
+        ? object.points
+        : [{ x: 0, y: 0 }, { x: 120, y: 0 }, { x: 260, y: 140 }];
+    return Promise.resolve(new Arrow(points, object));
   }
 }
 classRegistry.setClass(Arrow);
@@ -153,7 +205,6 @@ function wrapText(text, maxWidth, font) {
 }
 
 const TABLE_DEFAULTS = {
-  fill: '#ffffff',
   colWidth: 235,
   padding: 9,
   minRowHeight: 38,
@@ -161,6 +212,9 @@ const TABLE_DEFAULTS = {
   descSize: 12.5,
   borderColor: '#111111',
   borderWidth: 1.6,
+  outerBorderWidth: 7, // borde exterior grueso, más llamativo
+  fillA: '#FFD400', // amarillo (damero: empieza arriba-izquierda)
+  fillB: '#ffffff', // blanco
   labelColor: '#111111',
   descColor: '#333333',
 };
@@ -223,17 +277,16 @@ export class FichaTable extends FabricObject {
     ctx.save();
     ctx.translate(-w / 2, -h / 2);
 
-    if (this.fill) {
-      ctx.fillStyle = this.fill;
-      ctx.fillRect(0, 0, w, h);
-    }
-
     ctx.textBaseline = 'top';
     let y = 0;
-    for (const row of this._layout) {
+    this._layout.forEach((row, ri) => {
       let x = 0;
       for (let ci = 0; ci < this.cols; ci++) {
         const cell = row.cells[ci];
+        // relleno en damero: amarillo/blanco alternando por fila y columna
+        ctx.fillStyle = (ri + ci) % 2 === 0 ? this.fillA : this.fillB;
+        ctx.fillRect(x, y, this.colWidth, row.rowHeight);
+        // borde interior fino de la celda
         ctx.strokeStyle = this.borderColor;
         ctx.lineWidth = this.borderWidth;
         ctx.strokeRect(x, y, this.colWidth, row.rowHeight);
@@ -255,7 +308,17 @@ export class FichaTable extends FabricObject {
         x += this.colWidth;
       }
       y += row.rowHeight;
-    }
+    });
+
+    // borde exterior grueso por encima de todo
+    ctx.strokeStyle = this.borderColor;
+    ctx.lineWidth = this.outerBorderWidth;
+    ctx.strokeRect(
+      this.outerBorderWidth / 2,
+      this.outerBorderWidth / 2,
+      w - this.outerBorderWidth,
+      h - this.outerBorderWidth
+    );
     ctx.restore();
   }
 
@@ -277,7 +340,8 @@ export class FichaTable extends FabricObject {
   toObject(props = []) {
     return super.toObject([
       'rows', 'colWidth', 'padding', 'minRowHeight', 'labelSize', 'descSize',
-      'borderColor', 'borderWidth', 'labelColor', 'descColor', ...props,
+      'borderColor', 'borderWidth', 'outerBorderWidth', 'fillA', 'fillB',
+      'labelColor', 'descColor', ...props,
     ]);
   }
 
@@ -362,8 +426,13 @@ export function addBurbuja(canvas) {
 }
 
 export function addFlecha(canvas) {
-  const { left, top } = spawnPos(canvas, 300);
-  const a = new Arrow([left, top + 220, left + 300, top]);
+  const { left, top } = spawnPos(canvas, 340);
+  // inicio → codo (horizontal) → fin (diagonal)
+  const a = new Arrow([
+    { x: left, y: top + 160 },
+    { x: left + 170, y: top + 160 },
+    { x: left + 340, y: top },
+  ]);
   return place(canvas, a);
 }
 

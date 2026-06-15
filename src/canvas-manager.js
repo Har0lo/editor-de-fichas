@@ -1,6 +1,5 @@
 // Wrapper de Fabric.js: fondo, zoom, historial undo/redo y auto-guardado.
 import { Canvas, FabricImage } from 'fabric';
-import { syncArrowCoords } from './elements.js';
 
 const MAX_HISTORY = 50;
 
@@ -29,11 +28,7 @@ export class CanvasManager {
     };
     this.canvas.on('object:added', markDirty);
     this.canvas.on('object:removed', markDirty);
-    this.canvas.on('object:modified', (e) => {
-      // tras arrastrar una flecha, sus x1..y2 quedan viejos; resincronizar
-      if (e.target?.type === 'arrow') syncArrowCoords(e.target);
-      markDirty();
-    });
+    this.canvas.on('object:modified', markDirty);
     this.canvas.on('text:changed', markDirty);
 
     this._historyTimer = null;
