@@ -34,19 +34,16 @@ export class CanvasManager {
     this._historyTimer = null;
   }
 
-  async setBackground(blob) {
-    const url = URL.createObjectURL(blob);
-    try {
-      const img = await FabricImage.fromURL(url);
-      img.set({
-        scaleX: this.baseWidth / img.width,
-        scaleY: this.baseHeight / img.height,
-      });
-      this.canvas.backgroundImage = img;
-      this.canvas.requestRenderAll();
-    } finally {
-      URL.revokeObjectURL(url);
-    }
+  // Carga el fondo desde una URL (imagen base en Storage). crossOrigin evita que el
+  // canvas quede "tainted" y rompa la exportación a PDF.
+  async setBackground(url) {
+    const img = await FabricImage.fromURL(url, { crossOrigin: 'anonymous' });
+    img.set({
+      scaleX: this.baseWidth / img.width,
+      scaleY: this.baseHeight / img.height,
+    });
+    this.canvas.backgroundImage = img;
+    this.canvas.requestRenderAll();
   }
 
   /* ---------- estado ---------- */

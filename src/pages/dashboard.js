@@ -1,44 +1,67 @@
-import { listFichas, createFicha, deleteFicha, duplicateFicha } from '../storage.js';
+import {
+  listFichas, createFicha, deleteFicha, duplicateFicha,
+  listBases, uploadBase, baseUrl,
+} from '../storage.js';
 import { navigate } from '../router.js';
-import { seedDemoFicha } from '../seed.js';
+import { signOut, getEmail, isAdmin } from '../auth.js';
 
-const DEFAULT_W = 1240;
-const DEFAULT_H = 950;
+// usuario "disfrazado" de correo -> mostrar solo la parte antes de @
+const userLabel = (email) => (email || '').split('@')[0];
+
+// dimensiones naturales de una imagen dada su URL
+function imageSize(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    img.onerror = reject;
+    img.src = url;
+  });
+}
 
 function fechaCorta(ts) {
   return new Date(ts).toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 export async function renderDashboard(app) {
+  const admin = await isAdmin();
+
   app.innerHTML = `
     <div class="dashboard">
       <header class="dash-header">
         <div>
           <h1>Fichas Técnicas</h1>
-          <p class="subtitle">Tus fichas, listas para editar y exportar</p>
+          <p class="subtitle">
+            ${admin ? 'Admin · ves todas las fichas' : `Hola, ${userLabel(getEmail())}`}
+          </p>
         </div>
-        <button class="btn btn-primary" id="btn-nueva">+ Nueva ficha</button>
+        <div class="dash-actions">
+          <button class="btn btn-primary" id="btn-nueva">+ Nueva ficha</button>
+          <button class="btn" id="btn-logout">Salir</button>
+        </div>
       </header>
       <input type="search" id="buscar" class="search" placeholder="Buscar ficha…" />
       <div class="grid" id="grid"></div>
-      <p class="empty hidden" id="empty">No hay fichas todavía. Crea la primera con “+ Nueva ficha”.</p>
+      <p class="empty hidden" id="empty">Aún no hay fichas. Crea la primera con “+ Nueva ficha”.</p>
     </div>
 
-    <dialog id="modal-nueva" class="modal">
+    <dialog id="modal-nueva" class="modal modal-wide">
       <form method="dialog" id="form-nueva">
         <h2>Nueva ficha</h2>
         <label>
           Nombre de la ficha
           <input type="text" id="nueva-nombre" placeholder="Ej: FORCE HIDROFUGADO — Cliente X" required />
         </label>
-        <label>
-          Imagen base (la que te pasa diseño)
-          <input type="file" id="nueva-imagen" accept="image/png,image/jpeg,image/webp" />
-          <small>Opcional: si no la subes ahora, la ficha empieza en blanco.</small>
+        <p class="field-label">Elige una base gráfica</p>
+        <div class="bases-grid" id="bases-grid"></div>
+        <label class="upload-base">
+          ⬆ Subir una base nueva al banco
+          <input type="file" id="nueva-base-file" accept="image/png,image/jpeg,image/webp" />
         </label>
+        <p class="login-error hidden" id="nueva-msg"></p>
         <div class="modal-actions">
           <button type="button" class="btn" id="btn-cancelar">Cancelar</button>
-          <button type="submit" class="btn btn-primary">Crear y abrir</button>
+          <button type="submit" class="btn btn-primary" id="btn-crear" disabled>Crear y abrir</button>
         </div>
       </form>
     </dialog>
@@ -48,9 +71,19 @@ export async function renderDashboard(app) {
   const empty = app.querySelector('#empty');
   const buscar = app.querySelector('#buscar');
   const modal = app.querySelector('#modal-nueva');
+  const basesGrid = app.querySelector('#bases-grid');
+  const msg = app.querySelector('#nueva-msg');
+  const btnCrear = app.querySelector('#btn-crear');
 
-  await seedDemoFicha();
-  let fichas = await listFichas();
+  let fichas = [];
+  let selectedBase = null; // { path, url }
+
+  try {
+    fichas = await listFichas();
+  } catch (err) {
+    empty.textContent = `No se pudieron cargar las fichas: ${err.message}`;
+    empty.classList.remove('hidden');
+  }
 
   function pintar() {
     const q = buscar.value.trim().toLowerCase();
@@ -102,28 +135,86 @@ export async function renderDashboard(app) {
 
   buscar.addEventListener('input', pintar);
 
-  app.querySelector('#btn-nueva').addEventListener('click', () => modal.showModal());
+  app.querySelector('#btn-logout').addEventListener('click', async () => {
+    await signOut();
+    navigate('/login');
+  });
+
+  /* ---------- modal nueva ficha + banco de bases ---------- */
+
+  function renderBases(bases) {
+    basesGrid.innerHTML = bases.length
+      ? bases
+          .map(
+            (b) => `<button type="button" class="base-thumb" data-path="${b.path}">
+              <img src="${b.url}" alt="" loading="lazy" />
+            </button>`
+          )
+          .join('')
+      : '<p class="bases-empty">Aún no hay bases. Sube una abajo ⬇</p>';
+  }
+
+  function selectBase(path) {
+    selectedBase = path ? { path, url: baseUrl(path) } : null;
+    basesGrid.querySelectorAll('.base-thumb').forEach((el) =>
+      el.classList.toggle('selected', el.dataset.path === path)
+    );
+    btnCrear.disabled = !selectedBase;
+  }
+
+  basesGrid.addEventListener('click', (e) => {
+    const thumb = e.target.closest('.base-thumb');
+    if (thumb) selectBase(thumb.dataset.path);
+  });
+
+  app.querySelector('#btn-nueva').addEventListener('click', async () => {
+    selectedBase = null;
+    btnCrear.disabled = true;
+    msg.classList.add('hidden');
+    basesGrid.innerHTML = '<p class="bases-empty">Cargando bases…</p>';
+    modal.showModal();
+    try {
+      renderBases(await listBases());
+    } catch (err) {
+      basesGrid.innerHTML = `<p class="bases-empty">Error al cargar bases: ${err.message}</p>`;
+    }
+  });
+
   app.querySelector('#btn-cancelar').addEventListener('click', () => modal.close());
+
+  app.querySelector('#nueva-base-file').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    msg.classList.add('hidden');
+    try {
+      const { path } = await uploadBase(file);
+      renderBases(await listBases());
+      selectBase(path);
+    } catch (err) {
+      msg.textContent = `No se pudo subir la base: ${err.message}`;
+      msg.classList.remove('hidden');
+    }
+  });
 
   app.querySelector('#form-nueva').addEventListener('submit', async (e) => {
     e.preventDefault();
     const name = app.querySelector('#nueva-nombre').value.trim();
-    const file = app.querySelector('#nueva-imagen').files[0] || null;
-    if (!name) return;
-
-    let width = DEFAULT_W;
-    let height = DEFAULT_H;
-    if (file) {
-      const bmp = await createImageBitmap(file);
-      width = bmp.width;
-      height = bmp.height;
-      bmp.close();
+    if (!name || !selectedBase) return;
+    btnCrear.disabled = true;
+    btnCrear.textContent = 'Creando…';
+    try {
+      const { width, height } = await imageSize(selectedBase.url);
+      const ficha = await createFicha({ name, backgroundPath: selectedBase.path, width, height });
+      modal.close();
+      navigate(`/editor/${ficha.id}`);
+    } catch (err) {
+      msg.textContent = `No se pudo crear la ficha: ${err.message}`;
+      msg.classList.remove('hidden');
+      btnCrear.disabled = false;
+      btnCrear.textContent = 'Crear y abrir';
     }
-    const ficha = await createFicha({ name, backgroundBlob: file, width, height });
-    modal.close();
-    navigate(`/editor/${ficha.id}`);
   });
 
   pintar();
-  return null; // sin cleanup especial
+  return null;
 }

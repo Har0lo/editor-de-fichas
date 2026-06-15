@@ -1,4 +1,4 @@
-import { getFicha, saveFicha } from '../storage.js';
+import { getFicha, saveFicha, uploadBase, baseUrl } from '../storage.js';
 import { navigate } from '../router.js';
 import { util, Textbox } from 'fabric';
 import { CanvasManager } from '../canvas-manager.js';
@@ -87,7 +87,7 @@ export async function renderEditor(app, fichaId) {
   }
 
   try {
-    if (ficha.backgroundBlob) await manager.setBackground(ficha.backgroundBlob);
+    if (ficha.backgroundPath) await manager.setBackground(baseUrl(ficha.backgroundPath));
     if (ficha.canvasState) await manager.loadState(ficha.canvasState);
   } catch (err) {
     console.error('Error al cargar la ficha:', err);
@@ -131,11 +131,13 @@ export async function renderEditor(app, fichaId) {
   app.querySelector('#input-fondo').addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    status.textContent = 'Subiendo base…';
     const bmp = await createImageBitmap(file);
-    ficha.backgroundBlob = file;
     ficha.width = bmp.width;
     ficha.height = bmp.height;
     bmp.close();
+    const { path } = await uploadBase(file); // sube al banco compartido
+    ficha.backgroundPath = path;
     await guardar();
     // re-renderizar el editor con las dimensiones de la nueva base
     const next = await renderEditor(app, fichaId);
